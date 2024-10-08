@@ -6,10 +6,20 @@ ncpu=$(grep -c processor /proc/cpuinfo)
 build_flags="-Oline -j $ncpu"
 tmpfile_o=$(mktemp)
 tmpfile_n=$(mktemp)
+tmpfile_do=$(mktemp)
+tmpfile_dn=$(mktemp)
 rc=0
 
 pr() {
     echo " ====== $@ ======" | tee -a /dev/stderr
+}
+
+clean_up() {
+    pr "Cleaning"
+    make O=$output_dir $build_flags -C tools/testing/selftests/ clean
+
+    # Hard-clean YNL, too, otherwise YNL-related build problems may be masked
+    make -C tools/net/ynl/ distclean
 }
 
 # If it doesn't touch tools/ or include/, don't bother
@@ -34,11 +44,7 @@ git log -1 --pretty='%h ("%s")' HEAD
 # These are either very slow or don't build
 export SKIP_TARGETS="bpf dt landlock livepatch lsm user_events mm powerpc"
 
-pr "Cleaning"
-make O=$output_dir $build_flags -C tools/testing/selftests/ clean
-
-# Hard-clean YNL, too, otherwise YNL-related build problems may be masked
-make -C tools/net/ynl/ distclean
+clean_up
 
 pr "Baseline building the tree"
 git checkout -q HEAD~
@@ -56,8 +62,10 @@ make O=$output_dir $build_flags -C tools/testing/selftests/ \
 incumbent=$(grep -i -c "\(warn\|error\)" $tmpfile_o)
 
 pr "Checking if tree is clean"
-git status -s 1>&2
-incumbent_dirt=$(git status -s | grep -c '^??')
+dirty_files > $tmpfile_do
+clean_up
+git clean -ndxf >> $tmpfile_do
+incumbent_dirt=$(cat $tmpfile_do | wc -l)
 
 pr "Building the tree with the patch"
 git checkout -q $HEAD
@@ -69,8 +77,10 @@ make O=$output_dir $build_flags -C tools/testing/selftests/ \
 current=$(grep -i -c "\(warn\|error\)" $tmpfile_n)
 
 pr "Checking if tree is clean"
-git status -s 1>&2
-current_dirt=$(git status -s | grep -c '^??')
+dirty_files > $tmpfile_dn
+clean_up
+git clean -ndxf >> $tmpfile_dn
+incumbent_dirt=$(cat $tmpfile_dn | wc -l)
 
 echo "Errors and warnings before: $incumbent (+$incumbent_dirt) this patch: $current (+$current_dirt)" >&$DESC_FD
 
@@ -95,10 +105,11 @@ fi
 
 if [ $current_dirt -gt $incumbent_dirt ]; then
     echo "New untracked files added" 1>&2
+    diff -U 0 $tmpfile_do $tmpfile_dn 1>&2
 
     rc=1
 fi
 
-rm $tmpfile_o $tmpfile_n
+rm $tmpfile_o $tmpfile_n $tmpfile_do $tmpfile_dn
 
 exit $rc
