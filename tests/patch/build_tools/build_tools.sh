@@ -80,7 +80,7 @@ pr "Checking if tree is clean"
 dirty_files > $tmpfile_dn
 clean_up
 git clean -ndxf >> $tmpfile_dn
-incumbent_dirt=$(cat $tmpfile_dn | wc -l)
+current_dirt=$(cat $tmpfile_dn | wc -l)
 
 echo "Errors and warnings before: $incumbent (+$incumbent_dirt) this patch: $current (+$current_dirt)" >&$DESC_FD
 
