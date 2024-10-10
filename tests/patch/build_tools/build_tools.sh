@@ -21,6 +21,10 @@ clean_up() {
     make -C tools/net/ynl/ distclean
 }
 
+dirty_files() {
+	git status -s
+}
+
 # If it doesn't touch tools/ or include/, don't bother
 if ! git diff --name-only HEAD~ | grep -q -E "^(include)|(tools)/"; then
     echo "No tools touched, skip" >&$DESC_FD
