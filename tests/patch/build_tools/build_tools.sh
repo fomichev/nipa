@@ -1,7 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
 
-output_dir=build_tools/
 ncpu=$(grep -c processor /proc/cpuinfo)
 build_flags="-Oline -j $ncpu"
 tmpfile_o=$(mktemp)
@@ -16,7 +15,7 @@ pr() {
 
 clean_up() {
     pr "Cleaning"
-    make O=$output_dir $build_flags -C tools/testing/selftests/ clean
+    make $build_flags -C tools/testing/selftests/ clean
 
     # Hard-clean YNL, too, otherwise YNL-related build problems may be masked
     make -C tools/net/ynl/ distclean
@@ -29,8 +28,8 @@ if ! git diff --name-only HEAD~ | grep -q -E "^(include)|(tools)/"; then
 fi
 
 # Looks like tools inherit WERROR, otherwise
-make O=$output_dir allmodconfig
-./scripts/config --file $output_dir/.config -d werror
+make allmodconfig
+./scripts/config -d werror
 
 echo "Using $build_flags redirect to $tmpfile_o and $tmpfile_n"
 
@@ -48,15 +47,15 @@ clean_up
 
 pr "Baseline building the tree"
 git checkout -q HEAD~
-make O=$output_dir $build_flags headers
-make O=$output_dir $build_flags -C tools/testing/selftests/
+make $build_flags headers
+make $build_flags -C tools/testing/selftests/
 git checkout -q $HEAD
 
 pr "Building the tree before the patch"
 git checkout -q HEAD~
 
-make O=$output_dir $build_flags headers
-make O=$output_dir $build_flags -C tools/testing/selftests/ \
+make $build_flags headers
+make $build_flags -C tools/testing/selftests/ \
      2> >(tee -a $tmpfile_o >&2)
 
 incumbent=$(grep -i -c "\(warn\|error\)" $tmpfile_o)
@@ -70,8 +69,8 @@ incumbent_dirt=$(cat $tmpfile_do | wc -l)
 pr "Building the tree with the patch"
 git checkout -q $HEAD
 
-make O=$output_dir $build_flags headers
-make O=$output_dir $build_flags -C tools/testing/selftests/ \
+make $build_flags headers
+make $build_flags -C tools/testing/selftests/ \
      2> >(tee -a $tmpfile_n >&2)
 
 current=$(grep -i -c "\(warn\|error\)" $tmpfile_n)
