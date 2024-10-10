@@ -38,6 +38,7 @@ if ! git diff --name-only HEAD~ | grep -q -E "^(include)|(tools)/"; then
 fi
 
 # Looks like tools inherit WERROR, otherwise
+trap "make mrproper" EXIT
 make allmodconfig
 ./scripts/config -d werror
 
