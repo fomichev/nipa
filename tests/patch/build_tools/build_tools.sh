@@ -13,6 +13,12 @@ pr() {
     echo " ====== $@ ======" | tee -a /dev/stderr
 }
 
+mrproper() {
+    pr "Forcefully cleaning"
+    git clean -xf tools/testing/selftests/
+    git clean -xf tools/net/ynl/
+}
+
 clean_up() {
     pr "Cleaning"
     make $build_flags -C tools/testing/selftests/ clean
@@ -47,13 +53,15 @@ git log -1 --pretty='%h ("%s")' HEAD
 # These are either very slow or don't build
 export SKIP_TARGETS="bpf dt landlock livepatch lsm user_events mm powerpc"
 
-clean_up
+mrproper
 
 pr "Baseline building the tree"
 git checkout -q HEAD~
 make $build_flags headers
 make $build_flags -C tools/testing/selftests/
 git checkout -q $HEAD
+
+mrproper
 
 pr "Building the tree before the patch"
 git checkout -q HEAD~
@@ -69,6 +77,8 @@ dirty_files > $tmpfile_do
 clean_up
 git clean -ndxf >> $tmpfile_do
 incumbent_dirt=$(cat $tmpfile_do | wc -l)
+
+mrproper
 
 pr "Building the tree with the patch"
 git checkout -q $HEAD
